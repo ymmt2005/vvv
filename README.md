@@ -28,6 +28,8 @@ node bin/vvv.js preview examples/wonderful-day   # player with play and seek, on
 
 The MP4 holds H.264 video and Opus audio.
 Chrome on Linux cannot encode AAC.
+When scenes have chapter titles, the MP4 carries them as chapters, and `render` writes them into `out/` for web players and YouTube.
+See [script-json.md](skills/make-video/references/script-json.md#chapters).
 
 [`skills/make-video/references/`](skills/make-video/references/) documents `script.json`, `movie.js`, the music score and the voice engines.
 
@@ -100,7 +102,7 @@ The graph mixes in the voice clips, lowers the music while someone speaks, adds 
 
 **Chrome encodes, and VVV writes the MP4.**
 WebCodecs, Chrome's API to its media encoders, turns the canvas frames into H.264 and the audio buffer into Opus.
-VVV's own muxer puts both streams into one MP4 file.
+VVV's own muxer puts both streams into one MP4 file, with the chapters as a QuickTime chapter track.
 It writes the file's index (the `moov` box) before the media, so a browser can start playing before the whole file arrives.
 The page sends the finished file to the CLI, which saves it in `out/`.
 

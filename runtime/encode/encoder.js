@@ -18,9 +18,10 @@ export function avcCodec(width, height, fps) {
 const waitDequeue = (enc) => new Promise((r) => enc.addEventListener('dequeue', r, { once: true }));
 
 /**
- * Draw every frame, encode it as H.264 with the soundtrack as Opus, and return the MP4 bytes.
+ * Draw every frame, encode it as H.264 with the soundtrack as Opus, and return the MP4 bytes with the chapters.
  * @param {{ canvas: HTMLCanvasElement, draw: (t: number) => void, width: number, height: number, fps: number,
- *   frames: number, audio: AudioBuffer | null, bitrate?: number, onProgress?: (done: number, total: number) => void }} o
+ *   frames: number, audio: AudioBuffer | null, chapters?: import('./mp4.js').ChapterMark[], bitrate?: number,
+ *   onProgress?: (done: number, total: number) => void }} o
  * @returns {Promise<Uint8Array>}
  */
 export async function encodeMovie(o) {
@@ -72,7 +73,7 @@ export async function encodeMovie(o) {
   if (!avcC) throw new Error('the encoder gave no avcC decoder configuration');
 
   const audio = o.audio ? await encodeOpus(o.audio) : null;
-  return muxMp4({ video: { width, height, fps, avcC, samples: vSamples, color }, audio });
+  return muxMp4({ video: { width, height, fps, avcC, samples: vSamples, color }, audio, chapters: o.chapters });
 }
 
 /** VideoColorSpace → ISO/IEC 23091-2 code points for the colr box. */

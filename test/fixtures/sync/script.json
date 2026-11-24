@@ -3,7 +3,7 @@
   "fps": 30,
   "captions": false,
   "scenes": [
-    { "id": "a", "duration": 1.5 },
-    { "id": "b", "duration": 1.5 }
+    { "id": "a", "chapter": "Start", "duration": 1.5 },
+    { "id": "b", "chapter": "後半 & more", "duration": 1.5 }
   ]
 }

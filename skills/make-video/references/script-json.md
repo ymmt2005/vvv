@@ -44,6 +44,7 @@ To design it yourself, add a scene with the id `credits` to `movie.js`; its draw
 | Field | Meaning |
 |---|---|
 | `id` | Unique name. `movie.js` draws the scene under this name. |
+| `chapter` | A chapter title. The scene starts a chapter. See [Chapters](#chapters). |
 | `lines` | Narration lines, spoken one after another. |
 | `duration` | The scene's minimum length in seconds. A scene without lines needs it. |
 | `transition` | Seconds of crossfade from the previous scene. The fade overlaps the start of this scene. |
@@ -69,6 +70,27 @@ Scenes follow one another without overlap: a transition fades over the start of 
 ```json
 { "lang": "ja", "text": "来週月曜日、オープンです。", "caption": "We open next Monday." }
 ```
+
+## Chapters
+
+A scene with a `chapter` title starts a chapter, which lasts until the next scene with a title starts.
+The first chapter starts at 0 s even when the first scene has no title, so the chapters cover the whole movie, credits included.
+
+```json
+{ "id": "setup", "chapter": "Set up your team", "lines": [{ "lang": "en", "text": "First, invite your team." }] }
+```
+
+`vvv info` lists the chapters with their start and end times.
+`vvv render` writes them into the MP4 and into the movie's `out/` directory:
+
+- **In the MP4**, as a QuickTime chapter track, which QuickTime Player, Safari on a Mac and VLC list as chapters, though the iPhone's player may not.
+- **`out/chapters.vtt`**, a WebVTT chapters file for web players that take one.
+- **`out/chapters.txt`**, timestamps to paste into a YouTube description.
+
+Chrome shows no chapters from inside an MP4, so a page that plays the video draws its own chapter list, as [player-page.md](player-page.md) shows.
+
+YouTube shows chapters only when there are at least three and each lasts 10 s or more.
+`render` prints a note when the chapters break that rule.
 
 ## Fitting a length
 

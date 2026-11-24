@@ -106,14 +106,14 @@ async function main() {
       let lastPct = -1;
       const mp4 = await encodeMovie({
         canvas: m.canvas, draw: (t) => stage.draw(t), width: timeline.width, height: timeline.height, fps: timeline.fps,
-        frames: timeline.frames, audio, bitrate: opts.bitrate,
+        frames: timeline.frames, audio, chapters: timeline.chapters, bitrate: opts.bitrate,
         onProgress: (done, total) => {
           const pct = Math.floor((done / total) * 100);
           if (pct % 10 === 0 && pct !== lastPct) { lastPct = pct; console.log(`vvv:progress ${pct}% (${done}/${total} frames)`); }
         },
       });
       await postOutput(mp4);
-      return { bytes: mp4.length, duration: timeline.frames / timeline.fps, warnings: stage.allWarnings() };
+      return { bytes: mp4.length, duration: timeline.frames / timeline.fps, chapters: timeline.chapters, warnings: stage.allWarnings() };
     },
     /** The rendered soundtrack as an AudioBuffer, for tests that run in the page. */
     soundtrack: () => m.getSoundtrack(),
@@ -130,6 +130,9 @@ function setupControls(m) {
   const time = /** @type {HTMLElement} */ (document.getElementById('time'));
   const warn = /** @type {HTMLElement} */ (document.getElementById('warnings'));
   const scenes = /** @type {HTMLElement} */ (document.getElementById('scenes'));
+  const chapters = /** @type {HTMLElement} */ (document.getElementById('chapters'));
+  /** @type {HTMLButtonElement[]} */
+  const chapterButtons = [];
   let pos = 0;
   /** @type {{ ctx: AudioContext, src: AudioBufferSourceNode, t0: number } | null} */
   let playing = null;
@@ -141,6 +144,8 @@ function setupControls(m) {
     seek.value = String(Math.round((pos / timeline.duration) * 1000));
     time.textContent = `${pos.toFixed(2)} / ${timeline.duration.toFixed(2)}`;
     warn.textContent = stage.allWarnings().join('\n');
+    const current = timeline.chapters.findLastIndex((c) => pos >= c.start);
+    chapterButtons.forEach((btn, i) => btn.classList.toggle('current', i === current));
   };
   const stop = () => {
     if (!playing) return;
@@ -181,12 +186,20 @@ function setupControls(m) {
     tick();
   };
   play.onclick = () => (playing ? stop() : start());
+  const jumpTo = (t) => { const was = !!playing; stop(); show(t); if (was) start(); };
   // Seeking during the first soundtrack render just moves the start position.
-  seek.oninput = () => { const was = !!playing; stop(); show((Number(seek.value) / 1000) * timeline.duration); if (was) start(); };
+  seek.oninput = () => jumpTo((Number(seek.value) / 1000) * timeline.duration);
+  for (const c of timeline.chapters) {
+    const b = document.createElement('button');
+    b.textContent = `${c.title} (${c.start.toFixed(1)}s)`;
+    b.onclick = () => jumpTo(c.start);
+    chapters.append(b);
+    chapterButtons.push(b);
+  }
   for (const s of timeline.scenes) {
     const b = document.createElement('button');
     b.textContent = `${s.id} (${s.start.toFixed(1)}s)`;
-    b.onclick = () => { const was = !!playing; stop(); show(s.start); if (was) start(); };
+    b.onclick = () => jumpTo(s.start);
     scenes.append(b);
   }
   show(0);

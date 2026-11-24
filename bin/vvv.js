@@ -23,7 +23,8 @@ commands:
             --at 1,2.5,4        times in seconds (default: evenly spaced)
             --count 12          number of evenly spaced frames (default 12)
             --full              also write each frame at full size
-  render  <movie-dir>         render the movie to <movie-dir>/out/<name>.mp4
+  render  <movie-dir>         render the movie to <movie-dir>/out/<name>.mp4, plus chapters.vtt
+                              and chapters.txt in <movie-dir>/out/ when scenes have chapter titles
             -o FILE             output file
             --bitrate BPS       video bitrate in bits per second
   preview <movie-dir>         serve a player page with play/seek controls
@@ -74,6 +75,7 @@ async function main() {
     const tl = buildTimeline(script, existsSync(manifest) ? JSON.parse(await readFile(manifest, 'utf8')) : null);
     const info = {
       width: tl.width, height: tl.height, fps: tl.fps, duration: tl.duration, frames: tl.frames, credits: tl.credits,
+      chapters: tl.chapters,
       scenes: tl.scenes.map((s) => ({
         id: s.id, start: s.start, end: s.end,
         lines: s.lines.map((l) => ({ id: l.id, start: l.start, end: l.end, text: l.text, caption: l.caption })),
@@ -140,6 +142,8 @@ async function main() {
     }, { log });
     for (const w of result.warnings) log(`warning: ${w}`);
     log(`wrote ${out}: ${result.duration.toFixed(2)} s of video, ${(result.bytes / 1e6).toFixed(1)} MB, rendered in ${((Date.now() - started) / 1000).toFixed(1)} s`);
+    const { writeChapterFiles } = await import('../lib/chapters.js');
+    await writeChapterFiles(outDir, result.chapters, log);
     return;
   }
 

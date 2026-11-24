@@ -1,10 +1,14 @@
 // @ts-check
 // Renders the sync fixture and checks the MP4 by decoding it in Chrome:
-// every frame is present, in order, at the right time, and the audio lines up.
+// every frame is present, in order, at the right time, the audio lines up, and the chapters are there.
 
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { withMovie } from '../../lib/browser.js';
+import { chapterTitles, readMp4 } from '../mp4-read.js';
 import { fixture, injectMp4Reader, vvv } from './helpers.js';
 
 const DIR = fixture('sync');
@@ -67,4 +71,46 @@ test('the soundtrack and the MP4 audio start the kick at 1.000 s', async () => {
   assert.ok(Math.abs(r.rendered - 1.0) < 0.001, `the rendered kick starts at ${r.rendered} s`);
   assert.ok(Math.abs(r.decoded - r.rendered) < 0.001, `the MP4 kick starts at ${r.decoded} s, the rendered one at ${r.rendered} s`);
   assert.ok(Math.abs(r.duration - 3) < 0.03, `audio lasts ${r.duration} s`);
+});
+
+const CHAPTERS = [{ title: 'Start', start: 0, end: 1.5 }, { title: '後半 & more', start: 1.5, end: 3 }];
+
+test('the MP4 has a chapter track that the video and audio tracks reference', async () => {
+  const buf = (await readFile(join(DIR, 'out', 'sync.mp4'))).buffer;
+  const { tracks } = readMp4(buf);
+  const c = tracks.find((t) => t.handler === 'text');
+  assert.ok(c, 'a text track');
+  assert.deepEqual(tracks.filter((t) => t !== c).map((t) => t.chap), [c.id, c.id]);
+  assert.deepEqual(chapterTitles(buf, c), CHAPTERS.map((x) => x.title));
+  assert.deepEqual(c.samples.map((s) => [s.time, s.time + s.duration]), CHAPTERS.map((x) => [x.start, x.end]));
+});
+
+test('Chrome plays the MP4 with its chapter track, and reads chapters.vtt as chapter cues', async () => {
+  const r = await withMovie(DIR, (page) => page.evaluate(async () => {
+    const video = document.createElement('video');
+    video.src = '/movie/out/sync.mp4';
+    const track = document.createElement('track');
+    track.kind = 'chapters';
+    track.src = '/movie/out/chapters.vtt';
+    video.append(track);
+    document.body.append(video);
+    track.track.mode = 'hidden';
+    await Promise.all([
+      new Promise((ok, fail) => { video.onloadedmetadata = ok; video.onerror = () => fail(new Error(`video error ${video.error?.code}`)); }),
+      new Promise((ok, fail) => { track.onload = ok; track.onerror = () => fail(new Error('track error')); }),
+    ]);
+    const cues = [...(track.track.cues ?? [])].map((c) => ({ title: /** @type {VTTCue} */ (c).getCueAsHTML().textContent, start: c.startTime, end: c.endTime }));
+    return { duration: video.duration, width: video.videoWidth, cues };
+  }));
+  assert.ok(Math.abs(r.duration - 3) < 0.03, `the video lasts ${r.duration} s`);
+  assert.equal(r.width, 320);
+  assert.deepEqual(r.cues, CHAPTERS);
+  assert.equal(await readFile(join(DIR, 'out', 'chapters.txt'), 'utf8'), '0:00 Start\n0:01 後半 & more\n');
+});
+
+const ffprobe = (() => { try { execFileSync('ffprobe', ['-version']); return true; } catch { return false; } })();
+
+test('ffprobe reads the chapters', { skip: !ffprobe && 'ffprobe is not installed' }, () => {
+  const out = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_chapters', '-of', 'json', join(DIR, 'out', 'sync.mp4')], { encoding: 'utf8' }));
+  assert.deepEqual(out.chapters.map((c) => ({ title: c.tags?.title, start: Number(c.start_time), end: Number(c.end_time) })), CHAPTERS);
 });

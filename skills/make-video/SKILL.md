@@ -60,6 +60,8 @@ The credits card counts too: with piper-plus, VVV appends one (3 s unless `credi
 Subtitles follow the narration by default.
 To narrate in one language and subtitle in another, put the spoken text in `text` and the subtitle in `caption`, as [references/script-json.md](references/script-json.md) shows.
 
+Give scenes chapter titles when the user asks for chapters, or when a longer video has parts that a viewer may want to jump to.
+
 Read [references/script-json.md](references/script-json.md) for every field.
 
 ### 4. Generate the voice
@@ -115,7 +117,9 @@ It writes `<dir>/out/<dir-name>.mp4` with H.264 video and Opus audio, and prints
 Confirm that it is the length the user asked for.
 
 When the Artifact tool is available, publish a small page that plays the video: pass the MP4, and a poster frame from `vvv frames --at <t> --full`, as supporting files.
+When the movie has chapters, give the page a chapter list as [player-page.md](references/player-page.md) shows.
 After a re-render, pass the MP4 again when you republish: a publish that leaves the file out keeps the old video.
+Copy the chapters from `vvv info` into the page again too, because their times move when the voice changes.
 Say which voice engine and voice spoke, and list anything the user should check by ear, such as the pronunciation of names.
 
 ## When the user asks for changes

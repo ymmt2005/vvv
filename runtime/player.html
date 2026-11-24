@@ -18,9 +18,12 @@
   button { background: var(--panel); color: var(--text); border: 1px solid #2c303b; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
   button:hover { border-color: var(--accent); }
   #time { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 110px; text-align: right; }
-  #scenes { display: flex; flex-wrap: wrap; gap: 6px; width: min(100%, 1280px); }
+  #chapters, #scenes { display: flex; flex-wrap: wrap; gap: 6px; width: min(100%, 1280px); }
+  #chapters:empty { display: none; }
+  #chapters button { font-weight: 600; }
+  #chapters button.current { border-color: var(--accent); color: var(--accent); }
   #warnings { width: min(100%, 1280px); color: #ffcf6e; white-space: pre-wrap; font-size: 13px; }
-  body.headless #controls, body.headless #scenes, body.headless #warnings { display: none; }
+  body.headless #controls, body.headless #chapters, body.headless #scenes, body.headless #warnings { display: none; }
 </style>
 </head>
 <body>
@@ -31,6 +34,7 @@
     <input id="seek" type="range" min="0" max="1000" value="0">
     <span id="time">0.00 / 0.00</span>
   </div>
+  <div id="chapters"></div>
   <div id="scenes"></div>
   <div id="warnings"></div>
 </div>

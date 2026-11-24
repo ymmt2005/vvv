@@ -6,7 +6,7 @@
 /**
  * @typedef {{ id: string, lang: string, text: string, speech?: string, caption?: string | false, who?: string,
  *             voice?: { pitch?: number, speed?: number } }} ScriptLine
- * @typedef {{ id: string, duration?: number, transition?: number, lead?: number, gap?: number, tail?: number, lines?: ScriptLine[] }} ScriptScene
+ * @typedef {{ id: string, chapter?: string, duration?: number, transition?: number, lead?: number, gap?: number, tail?: number, lines?: ScriptLine[] }} ScriptScene
  * @typedef {{ lead: number, gap: number, tail: number }} Timing
  * @typedef {{ size?: [number, number], fps?: number, captions?: boolean, timing?: Partial<Timing>,
  *             credits?: string[], creditsDuration?: number, voice?: object, scenes: ScriptScene[] }} Script
@@ -14,9 +14,10 @@
  * @typedef {{ credits?: string[], lines: Record<string, VoiceClip> }} VoiceManifest
  * @typedef {{ id: string, lang: string, text: string, who: string | null, caption: string | false, start: number, end: number,
  *             file: string | null, rate: number, estimated: boolean }} TimedLine
- * @typedef {{ id: string, index: number, start: number, end: number, duration: number, transition: number, lines: TimedLine[] }} TimedScene
+ * @typedef {{ id: string, index: number, chapter: string | null, start: number, end: number, duration: number, transition: number, lines: TimedLine[] }} TimedScene
+ * @typedef {{ title: string, start: number, end: number }} Chapter
  * @typedef {{ width: number, height: number, fps: number, duration: number, frames: number, captions: boolean,
- *             credits: string[], scenes: TimedScene[], lines: TimedLine[], warnings: string[] }} Timeline
+ *             credits: string[], chapters: Chapter[], scenes: TimedScene[], lines: TimedLine[], warnings: string[] }} Timeline
  */
 
 export const DEFAULT_TIMING = Object.freeze({ lead: 0.5, gap: 0.35, tail: 0.8 });
@@ -61,6 +62,9 @@ export function buildTimeline(script, voice) {
     if (!s.id) throw new Error(`scene ${index} has no id`);
     if (ids.has(s.id)) throw new Error(`duplicate scene id "${s.id}"`);
     ids.add(s.id);
+    if (s.chapter !== undefined && (typeof s.chapter !== 'string' || !s.chapter.trim() || /[\r\n]/.test(s.chapter))) {
+      throw new Error(`scene "${s.id}": chapter must be a one-line title`);
+    }
     const timing = { lead: s.lead ?? base.lead, gap: s.gap ?? base.gap, tail: s.tail ?? base.tail };
     const start = cursor;
     let t = start + timing.lead;
@@ -90,7 +94,7 @@ export function buildTimeline(script, voice) {
     const duration = Math.max(s.duration ?? 0, spoken);
     if (!(duration > 0)) throw new Error(`scene "${s.id}" has neither lines nor a duration`);
     const scene = {
-      id: s.id, index, start, end: start + duration, duration,
+      id: s.id, index, chapter: s.chapter?.trim() ?? null, start, end: start + duration, duration,
       transition: index === 0 ? 0 : Math.min(s.transition ?? 0, duration / 2),
       lines: sceneLines,
     };
@@ -108,8 +112,20 @@ export function buildTimeline(script, voice) {
   const duration = cursor;
   return {
     width, height, fps, duration, frames: Math.round(duration * fps),
-    captions: script.captions ?? true, credits, scenes, lines, warnings,
+    captions: script.captions ?? true, credits, chapters: chaptersOf(scenes, duration), scenes, lines, warnings,
   };
+}
+
+/**
+ * A scene with a chapter title starts a chapter, which lasts until the next one starts.
+ * The first chapter starts at 0 s even when the first scene has no title, so the chapters cover the whole movie.
+ * @param {TimedScene[]} scenes
+ * @param {number} duration
+ * @returns {Chapter[]}
+ */
+function chaptersOf(scenes, duration) {
+  const titled = scenes.filter((s) => s.chapter);
+  return titled.map((s, i) => ({ title: /** @type {string} */ (s.chapter), start: i === 0 ? 0 : s.start, end: titled[i + 1]?.start ?? duration }));
 }
 
 /** The scene shown at global time T, and the previous scene while a transition runs. */

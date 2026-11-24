@@ -77,3 +77,21 @@ test('the caption of the line being spoken wins over one that is fading out', ()
   assert.equal(captionAt(tl, 2.5), null);
   assert.ok((captionAt(tl, 1.0)?.alpha ?? 0) < 1, 'a new caption fades in');
 });
+
+test('a scene with a chapter title starts a chapter that lasts until the next one, and the first starts at 0', () => {
+  const tl = buildTimeline({
+    scenes: [
+      { id: 'cold-open', duration: 2 },
+      { id: 'a', chapter: ' Why ', duration: 3 },
+      { id: 'b', duration: 1 },
+      { id: 'c', chapter: 'How', duration: 4 },
+    ],
+    credits: ['thanks'],
+  }, null);
+  assert.deepEqual(tl.chapters, [{ title: 'Why', start: 0, end: 6 }, { title: 'How', start: 6, end: 13 }]); // the credits card belongs to the last chapter
+  assert.deepEqual(tl.scenes.map((s) => s.chapter), [null, 'Why', null, 'How', null]);
+  assert.deepEqual(buildTimeline({ scenes: [{ id: 'a', duration: 1 }] }, null).chapters, []);
+  for (const chapter of ['', '  ', 'two\nlines', 3]) {
+    assert.throws(() => buildTimeline({ scenes: [{ id: 'a', duration: 1, chapter }] }, null), /chapter must be a one-line title/);
+  }
+});

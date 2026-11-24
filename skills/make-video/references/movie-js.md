@@ -53,7 +53,7 @@ It must depend only on `s`:
 | `state` | What `setup` returned. |
 | `line(id)` | One of the scene's lines, by its id or by its index from 0. It has `start`, `end` (scene-local seconds), `active`, `p` (progress), `text`, `who`. |
 | `lines` | All of the scene's lines. |
-| `timeline` | The whole timeline: `scenes`, `lines`, `duration`, `credits`. |
+| `timeline` | The whole timeline: `scenes` (each with its `chapter` title or `null`), `lines`, `chapters` (each `{ title, start, end }`, in seconds from the movie's start), `duration`, `credits`. |
 
 Tie motion to the narration with `s.line(...)`: for example, show a card when its line starts, or move a character's mouth while `line.active`.
 This keeps the picture in step even after the voice changes length.
