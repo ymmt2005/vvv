@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VVV Player</title>
+<script type="importmap">
+{ "imports": { "three": "/runtime/vendor/three/three.module.js", "vvv": "/runtime/vvv.js" } }
+</script>
+<style>
+  :root { --bg: #111318; --panel: #1b1e26; --text: #e6e8ee; --muted: #9aa0ad; --accent: #6ea8ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+  #wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 16px; }
+  #screen { width: min(100%, calc((100vh - 140px) * 16 / 9)); height: auto; background: #000; border-radius: 6px; }
+  #controls { display: flex; gap: 10px; align-items: center; width: min(100%, 1280px); }
+  #seek { flex: 1; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #2c303b; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  #time { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 110px; text-align: right; }
+  #scenes { display: flex; flex-wrap: wrap; gap: 6px; width: min(100%, 1280px); }
+  #warnings { width: min(100%, 1280px); color: #ffcf6e; white-space: pre-wrap; font-size: 13px; }
+  body.headless #controls, body.headless #scenes, body.headless #warnings { display: none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="screen"></canvas>
+  <div id="controls">
+    <button id="play">▶ Play</button>
+    <input id="seek" type="range" min="0" max="1000" value="0">
+    <span id="time">0.00 / 0.00</span>
+  </div>
+  <div id="scenes"></div>
+  <div id="warnings"></div>
+</div>
+<script type="module" src="/runtime/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+{
+  "size": [
+    1920,
+    1080
+  ],
+  "fps": 30,
+  "captions": false,
+  "timing": {
+    "lead": 0.4,
+    "gap": 0.3,
+    "tail": 0.7
+  },
+  "credits": [
+    "Made with VVV"
+  ],
+  "scenes": [
+    {
+      "id": "hello",
+      "lines": [
+        {
+          "id": "mina-1",
+          "who": "mina",
+          "lang": "ja",
+          "text": "ねえ見て！\nわたしたち、動画になってる！",
+          "speech": "ねえ見て！わたしたち、どうがに、なってる！",
+          "voice": {
+            "pitch": 1.06
+          }
+        },
+        {
+          "id": "haru-1",
+          "who": "haru",
+          "lang": "en",
+          "text": "Whoa, we're actually moving!",
+          "voice": {
+            "pitch": 0.9
+          }
+        }
+      ]
+    },
+    {
+      "id": "bark",
+      "lead": 1.7,
+      "transition": 0.4,
+      "lines": [
+        {
+          "id": "gen-1",
+          "who": "gen",
+          "lang": "ja",
+          "text": "ほっほっ、\n主役はポチじゃのう。",
+          "speech": "ほっほっ、しゅやくは、ポチじゃのう。",
+          "voice": {
+            "pitch": 0.74,
+            "speed": 0.92
+          }
+        },
+        {
+          "id": "kids-1",
+          "who": "mina",
+          "lang": "ja",
+          "text": "えーっ！？",
+          "speech": "えーっ！",
+          "voice": {
+            "pitch": 1.1
+          }
+        }
+      ]
+    }
+  ]
+}

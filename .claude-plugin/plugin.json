@@ -1,0 +1,5 @@
+{
+  "name": "vvv",
+  "description": "Make narrated videos with Claude: storyboard, text-to-speech, subtitles, music and 2D/3D animation, rendered to MP4 in headless Chrome.",
+  "author": { "name": "ymmt2005" }
+}

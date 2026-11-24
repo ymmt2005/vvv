@@ -1,0 +1,14 @@
+{
+  "name": "vvv",
+  "description": "VVV: make narrated videos with Claude.",
+  "owner": {
+    "name": "ymmt2005"
+  },
+  "plugins": [
+    {
+      "name": "vvv",
+      "source": "./",
+      "description": "Make narrated videos with Claude, rendered to MP4 in headless Chrome."
+    }
+  ]
+}
