@@ -40,8 +40,13 @@ A tone between the two, such as "warm and friendly", takes smooth motion with on
 
 ### 2. Create the movie directory
 
-Put each movie in its own directory, outside VVV's repository unless the user says otherwise.
-A company's video does not belong in a personal tool repository.
+Put each movie in its own directory, `~/vvv-movies/<short-name>/`, unless the user names another place.
+Tell the user the path when you create it.
+Do not use the current working directory: it is often a project repository, and a video does not belong in one.
+Do not use a temporary or scratchpad directory either.
+It gets cleared, and a paid voice engine must then generate the lost clips again.
+When the user asks to change an existing movie, work in its directory, so that `vvv voice` keeps the clips of unchanged lines.
+
 The directory holds `script.json`, `movie.js`, and any images or SVG files the movie loads.
 VVV writes `voice/` and `out/` there.
 
