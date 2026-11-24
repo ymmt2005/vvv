@@ -139,3 +139,17 @@ test('the script schema lists exactly the languages, engines and voice models th
   assert.deepEqual(sorted(script.$defs.voice.properties.engine.enum), sorted(Object.keys(ENGINES)));
   assert.deepEqual(sorted(script.$defs.voice.properties.model.enum), sorted(Object.keys(VOICES)));
 });
+
+test('the poster time must name a real scene or line', async () => {
+  assert.deepEqual(await errorsOf({ ...SCRIPT, poster: 'titel + 1' }), ['script.json: poster: no scene or line "titel"; did you mean "title"?']);
+  assert.deepEqual(await errorsOf({ ...SCRIPT, poster: 'hello' }), []);
+  assert.equal((await errorsOf({ ...SCRIPT, poster: 'title +1' })).length, 1, 'an offset needs spaces around its sign');
+  const late = await validateFiles(await movie({ ...SCRIPT, poster: 'title + 9' }));
+  assert.ok(late.warnings.includes('script.json: poster: 11.00 s is outside the movie, which lasts 5.00 s; the poster shows its last frame'));
+});
+
+test('the two schemas define times the same way, since one parser reads both', async () => {
+  const script = JSON.parse(await readFile(join(ROOT, 'schema', 'script.schema.json'), 'utf8'));
+  const music = JSON.parse(await readFile(join(ROOT, 'schema', 'music.schema.json'), 'utf8'));
+  assert.deepEqual(script.$defs.time, music.$defs.time);
+});

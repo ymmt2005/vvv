@@ -1,7 +1,7 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTimeline, captionAt, scenesAt } from '../../runtime/timeline.js';
+import { buildTimeline, captionAt, scenesAt, timeOf } from '../../runtime/timeline.js';
 
 const VOICE = { credits: ['voice credit'], lines: { 'a-1': { duration: 2, file: 'a-1.wav' }, b1: { duration: 1, file: 'b1.wav', rate: 1.1 } } };
 
@@ -94,4 +94,14 @@ test('a scene with a chapter title starts a chapter that lasts until the next on
   for (const chapter of ['', '  ', 'two\nlines', 3]) {
     assert.throws(() => buildTimeline({ scenes: [{ id: 'a', duration: 1, chapter }] }, null), /chapter must be a one-line title/);
   }
+});
+
+test('timeOf reads seconds, and scene or line ids with an offset', () => {
+  const tl = buildTimeline(script(), VOICE);
+  assert.deepEqual(timeOf(tl, 2.5), { time: 2.5 });
+  assert.deepEqual(timeOf(tl, 'b'), { time: 3.2 });
+  assert.deepEqual(timeOf(tl, 'b1 - 0.5'), { time: 3.2 });
+  assert.deepEqual(timeOf(tl, ' a-1 + 1.25 '), { time: 1.75 });
+  assert.deepEqual(timeOf(tl, 'bee'), { error: 'no scene or line "bee"', unknownId: 'bee' });
+  assert.match(/** @type {any} */ (timeOf(tl, 'b +1')).error, /is not a time/);
 });

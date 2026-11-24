@@ -114,3 +114,53 @@ test('ffprobe reads the chapters', { skip: !ffprobe && 'ffprobe is not installed
   const out = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_chapters', '-of', 'json', join(DIR, 'out', 'sync.mp4')], { encoding: 'utf8' }));
   assert.deepEqual(out.chapters.map((c) => ({ title: c.tags?.title, start: Number(c.start_time), end: Number(c.end_time) })), CHAPTERS);
 });
+
+test('the cover page plays the MP4 from disk, with its chapters, full page and full screen', async () => {
+  const { chromium } = await import('playwright');
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`file://${join(DIR, 'out', 'index.html')}`);
+    await page.waitForFunction(() => /** @type {HTMLVideoElement} */ (document.getElementById('video')).readyState >= 1);
+    assert.deepEqual(await page.locator('#chapters .name').allTextContents(), CHAPTERS.map((c) => c.title));
+    assert.equal(await page.locator('html').getAttribute('lang'), 'en');
+
+    await page.click('#chapters li:nth-child(2) button');
+    await page.waitForFunction(() => /** @type {HTMLVideoElement} */ (document.getElementById('video')).currentTime >= 1.5);
+    assert.equal(await page.locator('#chapters li.current .name').textContent(), CHAPTERS[1].title);
+
+    const posterWidth = await page.evaluate(() => new Promise((ok) => {
+      const img = new Image();
+      img.onload = () => ok(img.naturalWidth);
+      img.onerror = () => ok(0);
+      img.src = /** @type {HTMLVideoElement} */ (document.getElementById('video')).poster;
+    }));
+    assert.equal(posterWidth, 320, 'the poster frame loads');
+
+    // The arrow keys seek by 5 s, also after a click has put the focus on the seek bar.
+    await page.click('#seek');
+    const before = await page.evaluate(() => /** @type {HTMLVideoElement} */ (document.getElementById('video')).currentTime);
+    await page.keyboard.press('ArrowLeft');
+    const after = await page.evaluate(() => /** @type {HTMLVideoElement} */ (document.getElementById('video')).currentTime);
+    assert.equal(after, Math.max(0, before - 5));
+
+    await page.click('#full-page');
+    assert.ok(await page.evaluate(() => document.body.classList.contains('full-page')));
+    assert.equal(await page.getAttribute('#full-page', 'aria-label'), 'Exit full page');
+    // Picking a speed leaves the shortcuts working: Escape still leaves full page.
+    await page.selectOption('#speed', '1.5');
+    await page.keyboard.press('Escape');
+    assert.ok(!(await page.evaluate(() => document.body.classList.contains('full-page'))));
+
+    await page.click('#full-screen');
+    await page.waitForFunction(() => document.fullscreenElement?.id === 'player');
+    assert.equal(await page.getAttribute('#full-screen', 'aria-pressed'), 'true');
+    await page.keyboard.press('f');
+    await page.waitForFunction(() => document.fullscreenElement === null);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+  }
+});

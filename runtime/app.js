@@ -82,7 +82,8 @@ async function main() {
       scenes: timeline.scenes.map((s) => ({ id: s.id, start: s.start, end: s.end, lines: s.lines.map((l) => ({ id: l.id, start: l.start, end: l.end, text: l.text })) })),
       warnings: stage.allWarnings(),
     }),
-    still: (t) => { stage.draw(t); return m.canvas.toDataURL('image/png'); },
+    /** The frame at time t as a data URL, PNG unless type says otherwise (such as 'image/jpeg'). captions: false leaves out the subtitles. */
+    still: (t, type = 'image/png', o = {}) => { stage.draw(t, o); return m.canvas.toDataURL(type, 0.9); },
     sheet: (times, cols, thumbW) => contactSheet(m, times, cols, thumbW),
     warnings: () => stage.allWarnings(),
     /**

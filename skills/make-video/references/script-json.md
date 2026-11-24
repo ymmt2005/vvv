@@ -28,6 +28,10 @@ VVV's timeline reads it together with `voice/manifest.json`, which `vvv voice` w
 
 | Field | Default | Meaning |
 |---|---|---|
+| `title` | the directory's name | The movie's title, for its cover page. |
+| `description` | none | A sentence or two about the movie, for its cover page. |
+| `lang` | most lines' `lang` | The language of the cover page's controls, one of the values of a line's `lang`. |
+| `poster` | middle of the first scene | When the cover page's poster frame is, such as `"title + 1"`. It takes a time as `music.json` does; see [music.md](music.md#times). |
 | `size` | `[1920, 1080]` | Width and height in pixels. Both must be even for H.264. Use `[1080, 1920]` for vertical video. |
 | `fps` | `30` | Frames per second. |
 | `captions` | `true` | Draw each line's text as a subtitle at the bottom while it plays. |
@@ -88,7 +92,7 @@ The first chapter starts at 0 s even when the first scene has no title, so the c
 - **`out/chapters.vtt`**, a WebVTT chapters file for web players that take one.
 - **`out/chapters.txt`**, timestamps to paste into a YouTube description.
 
-Chrome shows no chapters from inside an MP4, so a page that plays the video draws its own chapter list, as [player-page.md](player-page.md) shows.
+Chrome shows no chapters from inside an MP4, so the cover page that `vvv render` writes, `out/index.html`, shows its own chapter list.
 
 YouTube shows chapters only when there are at least three and each lasts 10 s or more.
 `render` prints a note when the chapters break that rule.

@@ -84,8 +84,11 @@ node bin/vvv.js validate my-movie   # check the three files, and say what to fix
 node bin/vvv.js voice    my-movie   # speak the narration into my-movie/voice/
 node bin/vvv.js preview  my-movie   # play the movie in your browser, at http://localhost:8573/
 node bin/vvv.js check    my-movie   # draw every frame, and report errors and overflowing text
-node bin/vvv.js render   my-movie   # write my-movie/out/my-movie.mp4
+node bin/vvv.js render   my-movie   # write my-movie/out/my-movie.mp4, and its cover page
 ```
+
+`render` also writes a cover page, `my-movie/out/index.html`.
+Open it in a browser to watch the movie, with its chapters, full-page and full-screen modes, and the controls in the movie's language.
 
 `node bin/vvv.js help` lists every command and option.
 [`examples/wonderful-day/`](examples/wonderful-day/) is a longer movie: a cartoon with four characters, voiced by one voice at different pitches.

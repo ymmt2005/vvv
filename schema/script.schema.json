@@ -12,6 +12,24 @@
     "$schema": {
       "type": "string"
     },
+    "title": {
+      "description": "The movie's title, for its cover page.",
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "description": "A sentence or two about the movie, for its cover page.",
+      "type": "string",
+      "minLength": 1
+    },
+    "lang": {
+      "description": "The language of the cover page. Default: the language of most narration lines.",
+      "$ref": "#/$defs/lang"
+    },
+    "poster": {
+      "description": "When the cover page's poster frame is. Default: the middle of the first scene.",
+      "$ref": "#/$defs/time"
+    },
     "size": {
       "description": "Width and height in pixels; both even, for H.264.",
       "type": "array",
@@ -295,6 +313,19 @@
           }
         }
       }
+    },
+    "time": {
+      "description": "Seconds from the movie's start, or a scene or line id with an optional offset in seconds: \"title\", \"title + 1.5\", \"bark - 0.6\".",
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "type": "string",
+          "pattern": "^\\s*\\S+?(\\s+[+-]\\s+\\d+(\\.\\d+)?)?\\s*$"
+        }
+      ]
     }
   }
 }

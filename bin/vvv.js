@@ -3,7 +3,7 @@
 // vvv: the command-line tool. Run "vvv help" for usage.
 
 import { parseArgs } from 'node:util';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, join, resolve, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -20,12 +20,14 @@ commands:
             --force             regenerate every clip, not only the changed lines
   info    <movie-dir>         print the timeline (times from the movie's start) and warnings, as JSON
   check   <movie-dir>         validate, then draw every frame without encoding; report errors and warnings
-  frames  <movie-dir>         write a contact sheet of frames to <movie-dir>/out/sheet.png
+  frames  <movie-dir>         write a contact sheet of frames to <movie-dir>/out/frames/sheet.png,
+                              replacing what the last run wrote there
             --at 1,2.5,4        times in seconds (default: evenly spaced)
             --count 12          number of evenly spaced frames (default 12)
             --full              also write each frame at full size
-  render  <movie-dir>         render the movie to <movie-dir>/out/<name>.mp4, plus chapters.vtt
-                              and chapters.txt in <movie-dir>/out/ when scenes have chapter titles
+  render  <movie-dir>         render the movie to <movie-dir>/out/<name>.mp4, with a cover page that
+                              plays it (out/index.html), and chapters.vtt and chapters.txt in out/
+                              when scenes have chapter titles
             -o FILE             output file
             --bitrate BPS       video bitrate in bits per second
   preview <movie-dir>         serve a player page with play/seek controls
@@ -174,7 +176,10 @@ async function main() {
   }
 
   if (cmd === 'frames') {
-    await mkdir(outDir, { recursive: true });
+    // Each run replaces the last one's images, so out/frames/ never collects stale frames.
+    const framesDir = join(outDir, 'frames');
+    await rm(framesDir, { recursive: true, force: true });
+    await mkdir(framesDir, { recursive: true });
     await withMovie(movieDir, async (page) => {
       const info = await call(page, 'info');
       const count = Number(values.count ?? 12);
@@ -182,12 +187,12 @@ async function main() {
         ? values.at.split(',').map(Number)
         : Array.from({ length: count }, (_, i) => Number((((i + 0.5) * info.duration) / count).toFixed(2)));
       const sheet = await call(page, 'sheet', times, 4, 480);
-      await writeFile(join(outDir, 'sheet.png'), decodeDataUrl(sheet));
-      log(`wrote ${join(outDir, 'sheet.png')} (${times.join(', ')} s)`);
+      await writeFile(join(framesDir, 'sheet.png'), decodeDataUrl(sheet));
+      log(`wrote ${join(framesDir, 'sheet.png')} (${times.join(', ')} s)`);
       if (values.full) {
         for (const t of times) {
           const png = await call(page, 'still', t);
-          const f = join(outDir, `frame-${t.toFixed(2)}.png`);
+          const f = join(framesDir, `frame-${t.toFixed(2)}.png`);
           await writeFile(f, decodeDataUrl(png));
           log(`wrote ${f}`);
         }
@@ -201,14 +206,20 @@ async function main() {
   if (cmd === 'render') {
     const out = resolve(values.output ?? join(outDir, `${basename(movieDir)}.mp4`));
     const started = Date.now();
-    const result = await withMovie(movieDir, async (page, server) => {
+    const timeline = /** @type {import('../runtime/timeline.js').Timeline} */ (files.timeline);
+    const { posterTime, writeCover } = await import('../lib/cover.js');
+    const { result, poster } = await withMovie(movieDir, async (page, server) => {
       server.setOutput(out);
-      return call(page, 'render', { bitrate: values.bitrate ? Number(values.bitrate) : undefined });
+      const r = await call(page, 'render', { bitrate: values.bitrate ? Number(values.bitrate) : undefined });
+      // The poster leaves out the subtitles: they belong to the moment, not to the movie.
+      const still = await call(page, 'still', posterTime(files.script, timeline), 'image/jpeg', { captions: false });
+      return { result: r, poster: decodeDataUrl(still) };
     }, { log });
     for (const w of result.warnings) log(`warning: ${w}`);
     log(`wrote ${out}: ${result.duration.toFixed(2)} s of video, ${(result.bytes / 1e6).toFixed(1)} MB, rendered in ${((Date.now() - started) / 1000).toFixed(1)} s`);
     const { writeChapterFiles } = await import('../lib/chapters.js');
     await writeChapterFiles(outDir, result.chapters, log);
+    await writeCover({ outDir, mp4: out, movieDir, script: files.script, timeline, duration: result.duration, poster, log });
     return;
   }
 

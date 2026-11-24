@@ -64,6 +64,10 @@ To narrate in one language and subtitle in another, put the spoken text in `text
 
 Give scenes chapter titles when the user asks for chapters, or when a longer video has parts that a viewer may want to jump to.
 
+Give the movie a `title` and a `description` of a sentence or two, in the language of its audience.
+The cover page that `vvv render` writes shows them.
+Its controls are in the language of most narration lines; when the audience reads another language, such as English subtitles under Japanese narration, set `lang` to it.
+
 Read [references/script-json.md](references/script-json.md) for every field.
 Then run `vvv validate <dir>` and fix what it reports.
 Every message names the field and suggests the closest valid name for a misspelt one.
@@ -108,11 +112,12 @@ It checks the names in `movie.js` against `script.json`, such as scene ids and f
 
 ### 7. Look at frames, then fix
 
-Run `vvv frames <dir>` and read `<dir>/out/sheet.png` with the Read tool.
+Run `vvv frames <dir>` and read `<dir>/out/frames/sheet.png` with the Read tool.
 It is a grid of thumbnails, each labelled with its time and scene.
 Look for clipped or overlapping text, elements under the subtitles, empty or broken scenes, and anything off-brand.
 Use `--at 1.2,4.5` to look at chosen moments, such as each line's start and each transition.
-Add `--full` to also write each of those frames at full size, as `<dir>/out/frame-<t>.png`, when a thumbnail is too small to judge.
+Add `--full` to also write each of those frames at full size, as `<dir>/out/frames/frame-<t>.png`, when a thumbnail is too small to judge.
+Each run of `frames` replaces the images of the last one.
 `vvv info <dir>` prints the timeline, which gives the times worth checking: they count from the start of the movie, while `s.line()` in `movie.js` counts from the start of the scene.
 `info` needs only `script.json` and the voice clips, so it also works before `movie.js` exists.
 
@@ -132,10 +137,12 @@ Run `vvv render <dir>`.
 It writes `<dir>/out/<dir-name>.mp4` with H.264 video and Opus audio, and prints the video's length.
 Confirm that it is the length the user asked for.
 
-When the Artifact tool is available, publish a small page that plays the video: pass the MP4, and a poster frame from `vvv frames --at <t> --full`, as supporting files.
-When the movie has chapters, give the page a chapter list as [player-page.md](references/player-page.md) shows.
-After a re-render, pass the MP4 again when you republish: a publish that leaves the file out keeps the old video.
-Copy the chapters from `vvv info` into the page again too, because their times move when the voice changes.
+It also writes the cover page, `<dir>/out/index.html`, which plays the video with its chapters and credits.
+The page shows `<dir>/out/poster.jpg`, a frame of the movie without subtitles, before the video starts.
+Tell the user to open the cover page in a browser.
+
+When the Artifact tool is available, publish `out/index.html` as the page, with the MP4 and `poster.jpg` as supporting files under the same names: `files: { "<dir-name>.mp4": "<dir>/out/<dir-name>.mp4", "poster.jpg": "<dir>/out/poster.jpg" }`.
+After a re-render, publish the page and both files again: a publish that leaves a file out keeps the old one.
 Say which voice engine and voice spoke, and list anything the user should check by ear, such as the pronunciation of names.
 
 ## When the user asks for changes

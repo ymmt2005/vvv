@@ -8,7 +8,8 @@
  *             voice?: { pitch?: number, speed?: number } }} ScriptLine
  * @typedef {{ id: string, chapter?: string, duration?: number, transition?: number, lead?: number, gap?: number, tail?: number, lines?: ScriptLine[] }} ScriptScene
  * @typedef {{ lead: number, gap: number, tail: number }} Timing
- * @typedef {{ size?: [number, number], fps?: number, captions?: boolean, timing?: Partial<Timing>,
+ * @typedef {{ title?: string, description?: string, lang?: string, poster?: number | string,
+ *             size?: [number, number], fps?: number, captions?: boolean, timing?: Partial<Timing>,
  *             credits?: string[], creditsDuration?: number, voice?: object, scenes: ScriptScene[] }} Script
  * @typedef {{ duration: number, file: string, rate?: number }} VoiceClip
  * @typedef {{ credits?: string[], lines: Record<string, VoiceClip> }} VoiceManifest
@@ -126,6 +127,25 @@ export function buildTimeline(script, voice) {
 function chaptersOf(scenes, duration) {
   const titled = scenes.filter((s) => s.chapter);
   return titled.map((s, i) => ({ title: /** @type {string} */ (s.chapter), start: i === 0 ? 0 : s.start, end: titled[i + 1]?.start ?? duration }));
+}
+
+const TIME_REF = /^(\S+?)(?:\s+([+-])\s+(\d+(?:\.\d+)?))?$/;
+
+/**
+ * Seconds from the movie's start for a time reference: a number of seconds, or a scene or line id
+ * with an optional offset in seconds, such as "title", "title + 1.5" or "bark - 0.6".
+ * @param {Timeline} timeline
+ * @param {number | string} ref
+ * @returns {{ time: number } | { error: string, unknownId?: string }}
+ */
+export function timeOf(timeline, ref) {
+  if (typeof ref === 'number') return { time: ref };
+  const m = TIME_REF.exec(ref.trim());
+  if (!m) return { error: `"${ref}" is not a time; write seconds, "<id>", "<id> + 1.5" or "<id> - 0.5"` };
+  const [, id, sign, off] = m;
+  const item = timeline.scenes.find((s) => s.id === id) ?? timeline.lines.find((l) => l.id === id);
+  if (!item) return { error: `no scene or line "${id}"`, unknownId: id };
+  return { time: item.start + (sign === '-' ? -1 : 1) * Number(off ?? 0) };
 }
 
 /** The scene shown at global time T, and the previous scene while a transition runs. */

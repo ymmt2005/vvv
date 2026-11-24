@@ -101,8 +101,8 @@ export class Stage {
     return createThreeLayer(this.threeRenderer, this.timeline.width, this.timeline.height, opts);
   }
 
-  /** Draw global time T. */
-  draw(T) {
+  /** Draw global time T. captions: false leaves out the subtitles, for a poster frame. */
+  draw(T, { captions = true } = {}) {
     const { cur, prev, mix } = scenesAt(this.timeline, T);
     if (prev) {
       this.drawScene(this.g, prev, T);
@@ -114,7 +114,7 @@ export class Stage {
     } else {
       this.drawScene(this.g, cur, T);
     }
-    if (this.timeline.captions) this.drawCaption(T);
+    if (captions && this.timeline.captions) this.drawCaption(T);
   }
 
   drawScene(g, scene, T) {

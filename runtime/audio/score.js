@@ -5,6 +5,7 @@
 // Pure code with no browser or Node APIs: the page plays the result, and vvv validate checks it.
 
 import { beatsToSeconds, chord, drums, midi, progression, roots, secondsToBeats } from './music.js';
+import { timeOf } from '../timeline.js';
 
 /**
  * @typedef {number | string} TimeRef  seconds from the movie's start, or "<scene or line id>", "<id> + 1.5", "<id> - 0.5"
@@ -38,22 +39,11 @@ export class MusicError extends Error {
   }
 }
 
-const TIME_REF = /^(\S+?)(?:\s+([+-])\s+(\d+(?:\.\d+)?))?$/;
-
-/**
- * Seconds from the movie's start for a time reference.
- * @param {TimeRef} ref
- * @param {import('../timeline.js').Timeline} timeline
- * @param {string} path
- */
+/** Seconds from the movie's start for the time reference in the field at path. */
 function resolveTime(ref, timeline, path) {
-  if (typeof ref === 'number') return ref;
-  const m = TIME_REF.exec(ref.trim());
-  if (!m) throw new MusicError(path, `"${ref}" is not a time; write seconds, "<id>", "<id> + 1.5" or "<id> - 0.5"`);
-  const [, id, sign, off] = m;
-  const item = timeline.scenes.find((s) => s.id === id) ?? timeline.lines.find((l) => l.id === id);
-  if (!item) throw new MusicError(path, `no scene or line "${id}" in script.json`, { unknownId: id });
-  return item.start + (sign === '-' ? -1 : 1) * Number(off ?? 0);
+  const r = timeOf(timeline, ref);
+  if ('error' in r) throw new MusicError(path, r.unknownId ? `${r.error} in script.json` : r.error, { unknownId: r.unknownId });
+  return r.time;
 }
 
 /**
