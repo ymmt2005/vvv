@@ -6,20 +6,14 @@
 import { Kit, instruments, reverbImpulse } from './instruments.js';
 import { beatsToSeconds, freq } from './music.js';
 
-/**
- * @typedef {[number, number, (number | string | (number | string)[]), number?] | { at: number, len: number, pitch: any, vel?: number }} ScoreNote
- * @typedef {{ inst: string, gain?: number, pan?: number, reverb?: number, delay?: number, unit?: 'beats' | 'seconds', notes: ScoreNote[] }} Track
- * @typedef {{ bpm?: number, gain?: number, duck?: number, fadeOut?: number, tracks: Track[] }} Score
- */
-
 export const SAMPLE_RATE = 48000;
 
 /**
  * Render the whole soundtrack (narration clips, music and effects, mixed and limited) at 48 kHz stereo.
- * @param {{ timeline: import('../timeline.js').Timeline, score: Score | null, voiceBase: string }} o
+ * @param {{ timeline: import('../timeline.js').Timeline, music: import('./score.js').Music | null, voiceBase: string }} o
  * @returns {Promise<AudioBuffer>}
  */
-export async function renderSoundtrack({ timeline, score, voiceBase }) {
+export async function renderSoundtrack({ timeline, music, voiceBase }) {
   const length = Math.max(1, Math.ceil(timeline.duration * SAMPLE_RATE));
   // The compressor delays its output by a look-ahead; render that much more and trim it from the start.
   const latency = await compressorLatency();
@@ -45,23 +39,20 @@ export async function renderSoundtrack({ timeline, score, voiceBase }) {
     src.start(l.start);
   }));
 
-  if (score && score.tracks?.length) {
-    const bpm = score.bpm ?? 100;
-    const level = score.gain ?? 0.8;
+  if (music && music.tracks.length) {
     const musicBus = ctx.createGain();
-    musicBus.gain.value = level;
+    musicBus.gain.value = music.gain;
     const duck = ctx.createGain();
     musicBus.connect(duck).connect(master);
-    automateDuck(duck.gain, timeline.lines.map((l) => [l.start, l.end]), score.duck ?? 0.45);
-    const fade = score.fadeOut ?? 1.5;
-    musicBus.gain.setValueAtTime(level, Math.max(0, timeline.duration - fade));
+    automateDuck(duck.gain, timeline.lines.map((l) => [l.start, l.end]), music.duck);
+    musicBus.gain.setValueAtTime(music.gain, Math.max(0, timeline.duration - music.fadeOut));
     musicBus.gain.linearRampToValueAtTime(0, timeline.duration);
 
     const reverb = ctx.createConvolver();
     reverb.buffer = reverbImpulse(ctx);
     reverb.connect(musicBus);
     const delay = ctx.createDelay(2);
-    delay.delayTime.value = beatsToSeconds(0.75, bpm);
+    delay.delayTime.value = beatsToSeconds(0.75, music.bpm);
     const fb = ctx.createGain();
     fb.gain.value = 0.32;
     const dlp = ctx.createBiquadFilter();
@@ -70,25 +61,20 @@ export async function renderSoundtrack({ timeline, score, voiceBase }) {
     delay.connect(musicBus);
 
     const kit = new Kit(ctx);
-    for (const tr of score.tracks) {
+    for (const tr of music.tracks) {
+      if (!Object.hasOwn(instruments, tr.inst)) throw new Error(`unknown instrument "${tr.inst}"; known: ${Object.keys(instruments).join(', ')}`);
       const inst = instruments[tr.inst];
-      if (!inst) throw new Error(`unknown instrument "${tr.inst}"; known: ${Object.keys(instruments).join(', ')}`);
       const g = ctx.createGain();
-      g.gain.value = tr.gain ?? 1;
+      g.gain.value = tr.gain;
       const pan = ctx.createStereoPanner();
-      pan.pan.value = tr.pan ?? 0;
+      pan.pan.value = tr.pan;
       g.connect(pan).connect(musicBus);
       if (tr.reverb) { const s = ctx.createGain(); s.gain.value = tr.reverb; pan.connect(s).connect(reverb); }
       if (tr.delay) { const s = ctx.createGain(); s.gain.value = tr.delay; pan.connect(s).connect(delay); }
-      const toSec = tr.unit === 'seconds' ? (x) => x : (x) => beatsToSeconds(x, bpm);
-      for (const raw of tr.notes) {
-        const n = Array.isArray(raw) ? { at: raw[0], len: raw[1], pitch: raw[2], vel: raw[3] } : raw;
-        const time = toSec(n.at);
-        const vel = n.vel ?? 0.8;
+      for (const n of tr.notes) {
         // A silent note would only make exponential ramps aim at zero, which Web Audio refuses.
-        if (time >= timeline.duration || !(vel > 0)) continue;
-        const pitches = Array.isArray(n.pitch) ? n.pitch : [n.pitch];
-        for (const p of pitches) inst(ctx, g, { time, dur: toSec(n.len), freq: freq(p), vel }, kit);
+        if (n.time >= timeline.duration || !(n.vel > 0)) continue;
+        for (const p of n.pitch) inst(ctx, g, { time: n.time, dur: n.len, freq: freq(p), vel: n.vel }, kit);
       }
     }
   }

@@ -3,7 +3,7 @@
 // vvv: the command-line tool. Run "vvv help" for usage.
 
 import { parseArgs } from 'node:util';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, join, resolve, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -15,10 +15,11 @@ const USAGE = `usage: vvv <command> [options]
 
 commands:
   setup                       download the pinned voice engine, voice model, font and Chrome
+  validate <movie-dir>        check script.json, music.json and movie.js, and say what to fix
   voice   <movie-dir>         speak the narration lines of script.json into voice/
             --force             regenerate every clip, not only the changed lines
   info    <movie-dir>         print the timeline (times from the movie's start) and warnings, as JSON
-  check   <movie-dir>         draw every frame without encoding; report errors and warnings
+  check   <movie-dir>         validate, then draw every frame without encoding; report errors and warnings
   frames  <movie-dir>         write a contact sheet of frames to <movie-dir>/out/sheet.png
             --at 1,2.5,4        times in seconds (default: evenly spaced)
             --count 12          number of evenly spaced frames (default 12)
@@ -30,6 +31,35 @@ commands:
   preview <movie-dir>         serve a player page with play/seek controls
             --port N            port (default 8573)
 `;
+
+/** The messages of several lists, each once, in order: the files and the page can report the same problem. */
+const unique = (...lists) => [...new Set(lists.flat())];
+
+function report(log, { errors = [], warnings = [] }) {
+  for (const w of warnings) log(`warning: ${w}`);
+  for (const e of errors) log(`error: ${e}`);
+}
+
+/** Load movie.js in the page and check what it defines against the timeline. */
+async function inspectMovie(page, timeline, o) {
+  const { call } = await import('../lib/browser.js');
+  const { checkMovie } = await import('../lib/validate.js');
+  return checkMovie(await call(page, 'inspect', o), timeline);
+}
+
+/**
+ * Validate script.json, and music.json unless the command does not use it.
+ * Errors stop the command; warnings are printed and it goes on.
+ */
+async function preflight(movieDir, log, o = {}) {
+  const { validateFiles } = await import('../lib/validate.js');
+  const r = await validateFiles(movieDir, o);
+  if (r.errors.length) {
+    report(log, { errors: r.errors });
+    throw new Error(`${r.errors.length} error(s) in the movie's files; run "vvv validate" after fixing them`);
+  }
+  return r;
+}
 
 function decodeDataUrl(u) {
   return Buffer.from(u.slice(u.indexOf(',') + 1), 'base64');
@@ -61,7 +91,34 @@ async function main() {
   if (!existsSync(join(movieDir, 'script.json'))) throw new Error(`${movieDir} has no script.json`);
   const outDir = join(movieDir, 'out');
 
+  if (cmd === 'validate') {
+    const { validateFiles } = await import('../lib/validate.js');
+    const files = await validateFiles(movieDir);
+    let movie = { errors: [], warnings: [] };
+    const timeline = files.timeline;
+    if (timeline && !files.errors.length) {
+      if (existsSync(join(movieDir, 'movie.js'))) {
+        const { withMovie } = await import('../lib/browser.js');
+        try {
+          movie = await withMovie(movieDir, (page) => inspectMovie(page, timeline, { draw: true }), { log });
+        } catch (e) {
+          movie = { errors: [`movie.js: ${/** @type {Error} */ (e).message}`], warnings: [] };
+        }
+      } else {
+        log('movie.js does not exist yet; checked script.json and music.json only');
+      }
+    }
+    const errors = unique(files.errors, movie.errors);
+    const warnings = unique(files.warnings, movie.warnings);
+    report(log, { errors, warnings });
+    log(`validate: ${errors.length} error(s), ${warnings.length} warning(s)`);
+    if (errors.length) process.exitCode = 1;
+    return;
+  }
+
   if (cmd === 'voice') {
+    // Check the script before a paid voice engine reads it.
+    await preflight(movieDir, log, { music: false });
     const { generateVoice } = await import('../lib/voice.js');
     await generateVoice(movieDir, { force: values.force, log });
     return;
@@ -69,10 +126,7 @@ async function main() {
 
   if (cmd === 'info') {
     // The timeline needs only script.json and the voice manifest, so info works before movie.js exists.
-    const { buildTimeline } = await import('../runtime/timeline.js');
-    const script = JSON.parse(await readFile(join(movieDir, 'script.json'), 'utf8'));
-    const manifest = join(movieDir, 'voice', 'manifest.json');
-    const tl = buildTimeline(script, existsSync(manifest) ? JSON.parse(await readFile(manifest, 'utf8')) : null);
+    const tl = /** @type {import('../runtime/timeline.js').Timeline} */ ((await preflight(movieDir, log)).timeline);
     const info = {
       width: tl.width, height: tl.height, fps: tl.fps, duration: tl.duration, frames: tl.frames, credits: tl.credits,
       chapters: tl.chapters,
@@ -87,24 +141,35 @@ async function main() {
   }
 
   if (cmd === 'preview') {
+    // The page reloads the files, so a mistake fixed while the preview runs shows on the next reload.
+    const { validateFiles } = await import('../lib/validate.js');
+    report(log, { errors: (await validateFiles(movieDir)).errors });
     const { startServer } = await import('../lib/server.js');
     const s = await startServer({ movieDir, port: Number(values.port ?? 8573) });
     log(`preview: ${s.url}  (Ctrl-C to stop)`);
     await new Promise(() => {});
   }
 
+  const files = await preflight(movieDir, log);
   const { withMovie, call } = await import('../lib/browser.js');
 
   if (cmd === 'check') {
     const started = Date.now();
-    const r = await withMovie(movieDir, (page) => call(page, 'check'), { log });
-    for (const w of r.warnings) log(`warning: ${w}`);
+    const timeline = /** @type {import('../runtime/timeline.js').Timeline} */ (files.timeline);
+    // check draws every frame itself, so the movie.js checks skip their quick draws.
+    const { movie, r } = await withMovie(movieDir, async (page) => ({
+      movie: await inspectMovie(page, timeline, { draw: false }),
+      r: await call(page, 'check'),
+    }), { log });
+    const warnings = unique(files.warnings, movie.warnings, r.warnings);
+    report(log, { errors: movie.errors, warnings });
     for (const e of r.errors) {
       const when = e.from === e.to ? `${e.from.toFixed(2)}s` : `${e.from.toFixed(2)}s–${e.to.toFixed(2)}s`;
       log(`error at ${when} (frame ${e.frame}): ${e.message}\n${e.stack}`);
     }
-    log(`checked ${r.frames} frames in ${((Date.now() - started) / 1000).toFixed(1)} s: ${r.errors.length} error(s), ${r.warnings.length} warning(s)`);
-    if (r.errors.length) process.exitCode = 1;
+    const errorCount = movie.errors.length + r.errors.length;
+    log(`checked ${r.frames} frames in ${((Date.now() - started) / 1000).toFixed(1)} s: ${errorCount} error(s), ${warnings.length} warning(s)`);
+    if (errorCount) process.exitCode = 1;
     return;
   }
 

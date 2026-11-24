@@ -1,10 +1,7 @@
 // @ts-check
-// Music theory helpers for writing a score in movie.js.
-//
-// A score is { bpm, tracks: [{ inst, gain?, pan?, reverb?, delay?, unit?, notes }] }.
-// A note is [at, len, pitch, vel?] or { at, len, pitch, vel }.
-// at and len are in beats, or in seconds when the track has unit: 'seconds'.
-// pitch is a MIDI number, a name such as 'C#4', or an array of them (a chord).
+// Music theory helpers that score.js uses to expand music.json:
+// pitches, chords, and the note patterns of chord progressions, bass lines and drums.
+// A pattern note is [at, len, pitch, vel], with at and len in beats.
 
 const NAMES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
@@ -40,22 +37,6 @@ export function chord(symbol, octave = 3) {
   const notes = q.map((i) => root + i);
   if (bass) notes.unshift(midi(`${bass}${octave - 1}`));
   return notes;
-}
-
-const MODES = {
-  major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10],
-  mixolydian: [0, 2, 4, 5, 7, 9, 10], pentatonic: [0, 2, 4, 7, 9], minorPentatonic: [0, 3, 5, 7, 10],
-};
-
-/** Scale degree (0-based, may exceed the octave or be negative) to MIDI. scale('C4', 'major')(4) → G4. */
-export function scale(root, mode = 'major') {
-  const steps = MODES[mode];
-  if (!steps) throw new Error(`unknown mode "${mode}"`);
-  const r = midi(root);
-  return (deg) => {
-    const o = Math.floor(deg / steps.length);
-    return r + o * 12 + steps[((deg % steps.length) + steps.length) % steps.length];
-  };
 }
 
 /** The chord symbols repeated o.repeat times, each with its start beat. */

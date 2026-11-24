@@ -10,13 +10,16 @@ import { clamp, outCubic, seg } from './ease.js';
 /**
  * @typedef {import('./timeline.js').Timeline} Timeline
  * @typedef {import('./timeline.js').TimedScene} TimedScene
+ * @typedef {import('./audio/score.js').Music} Music
  * @typedef {{ id: string, start: number, end: number, active: boolean, p: number, text: string, lang: string, who: string | null }} LocalLine
+ * @typedef {{ start: number, end: number, pitch: number[], vel: number }} LocalNote
  * @typedef {{ t: number, d: number, p: number, T: number, w: number, h: number, scene: TimedScene,
- *   lines: LocalLine[], line: (key: string | number) => LocalLine, timeline: Timeline, state: any }} DrawInfo
+ *   lines: LocalLine[], line: (key: string | number) => LocalLine, notes: (name: string) => LocalNote[],
+ *   timeline: Timeline, music: Music | null, state: any }} DrawInfo
  * @typedef {{ setup?: (s: SetupInfo) => any, draw: (g: CanvasRenderingContext2D, s: DrawInfo) => void }} SceneDef
- * @typedef {{ scene: TimedScene, timeline: Timeline, w: number, h: number, three: (opts?: object) => Promise<any>,
+ * @typedef {{ scene: TimedScene, timeline: Timeline, music: Music | null, w: number, h: number, three: (opts?: object) => Promise<any>,
  *   image: (url: string) => Promise<HTMLImageElement> }} SetupInfo
- * @typedef {{ background?: string, scenes: Record<string, SceneDef>, captionStyle?: object, music?: Function }} MovieDef
+ * @typedef {{ background?: string, scenes: Record<string, SceneDef>, captionStyle?: object }} MovieDef
  */
 
 /**
@@ -28,7 +31,8 @@ export function defineMovie(def) {
   return def;
 }
 
-const DEFAULT_CAPTION = { size: 44, weight: 500, color: '#ffffff', box: 'rgba(8, 10, 20, 0.62)', bottom: 72, width: 0.78, maxLines: 2 };
+/** The subtitle style; movie.js may override any of these in captionStyle. */
+export const DEFAULT_CAPTION = { size: 44, weight: 500, color: '#ffffff', box: 'rgba(8, 10, 20, 0.62)', bottom: 72, width: 0.78, maxLines: 2 };
 
 /** Draws any moment of a movie onto its canvas: scenes, transitions, captions and the credits card. */
 export class Stage {
@@ -36,12 +40,14 @@ export class Stage {
    * @param {HTMLCanvasElement} canvas
    * @param {Timeline} timeline
    * @param {MovieDef} movie
+   * @param {Music | null} music the expanded music.json, or null without one
    * @param {string} movieBase URL of the movie directory, ending in "/"
    */
-  constructor(canvas, timeline, movie, movieBase) {
+  constructor(canvas, timeline, movie, music, movieBase) {
     this.canvas = canvas;
     this.timeline = timeline;
     this.movie = movie;
+    this.music = music;
     this.movieBase = movieBase;
     canvas.width = timeline.width;
     canvas.height = timeline.height;
@@ -53,7 +59,8 @@ export class Stage {
     /** @type {Map<string, any>} */
     this.state = new Map();
     this.threeRenderer = null;
-    this.warnings = [];
+    /** @type {string[]} */
+    this.warnings = (music?.warnings ?? []).map((w) => `music.json: ${w}`);
   }
 
   async init() {
@@ -65,11 +72,15 @@ export class Stage {
       }
       if (def.setup) {
         const info = {
-          scene, timeline: this.timeline, w: this.timeline.width, h: this.timeline.height,
+          scene, timeline: this.timeline, music: this.music, w: this.timeline.width, h: this.timeline.height,
           three: (opts) => this.makeThree(opts),
           image: (url) => loadImage(new URL(url, this.movieBase).href),
         };
-        this.state.set(scene.id, await def.setup(info));
+        try {
+          this.state.set(scene.id, await def.setup(info));
+        } catch (e) {
+          throw new Error(`setup of scene "${scene.id}" failed: ${/** @type {Error} */ (e)?.message ?? e}`, { cause: e });
+        }
       }
     }
   }
@@ -120,21 +131,33 @@ export class Stage {
     const byId = new Map(scene.lines.map((l, i) => [l.id, lines[i]]));
     /** @type {DrawInfo} */
     const info = {
-      t, d: scene.duration, p: clamp(t / scene.duration), T, w, h, scene, lines, timeline: this.timeline,
+      t, d: scene.duration, p: clamp(t / scene.duration), T, w, h, scene, lines, timeline: this.timeline, music: this.music,
       line: (key) => {
         const l = typeof key === 'number' ? lines[key] : byId.get(key);
         if (!l) throw new Error(`scene "${scene.id}" has no line "${key}"`);
         return l;
       },
+      notes: (name) => this.notesOf(name, scene.start),
       state: this.state.get(scene.id),
     };
     const def = this.def(scene);
-    if (def) {
-      def.draw(g, info);
-    } else {
-      text(g, `[${scene.id}]`, { x: w / 2, y: h / 2, size: 64, align: 'center', baseline: 'middle', color: '#888' });
+    // Restore even when draw throws, so that a failed frame leaves no transform or style for the next one.
+    try {
+      if (def) {
+        def.draw(g, info);
+      } else {
+        text(g, `[${scene.id}]`, { x: w / 2, y: h / 2, size: 64, align: 'center', baseline: 'middle', color: '#888' });
+      }
+    } finally {
+      g.restore();
     }
-    g.restore();
+  }
+
+  /** The notes of the music track with this name, timed from `origin` (a scene's start). */
+  notesOf(name, origin) {
+    const track = this.music?.tracks.find((tr) => tr.name === name);
+    if (!track) throw new Error(`music.json has no track named "${name}"`);
+    return track.notes.map((n) => ({ start: n.time - origin, end: n.time + n.len - origin, pitch: n.pitch, vel: n.vel }));
   }
 
   drawCaption(T) {

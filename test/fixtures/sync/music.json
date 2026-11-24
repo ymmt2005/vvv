@@ -1,0 +1,7 @@
+{
+  "bpm": 120,
+  "tracks": [
+    { "inst": "kick", "unit": "seconds", "notes": [[1.0, 0.2, 60, 1]] },
+    { "inst": "bark", "unit": "seconds", "notes": [[2.0, 0.2, 60, 0]] }
+  ]
+}

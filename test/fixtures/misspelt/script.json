@@ -1,0 +1,8 @@
+{
+  "size": [320, 180],
+  "captions": false,
+  "scenes": [
+    { "id": "intro", "duration": 1 },
+    { "id": "title", "duration": 1 }
+  ]
+}

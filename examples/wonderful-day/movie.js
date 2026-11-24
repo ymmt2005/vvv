@@ -1,7 +1,6 @@
 // ワンダフル・デイ: Mina, Haru, Grandpa Gen and Pochi the dog find out they are in a video.
 import {
   defineMovie, text, seg, clamp, lerp, outBack, outCubic, inOutCubic, outElastic, rng,
-  progression, roots, drums,
 } from 'vvv';
 
 const INK = '#3a2420';
@@ -304,9 +303,6 @@ function speedLines(g, w, h, alpha, T) {
   g.restore();
 }
 
-/** Bark times inside the bark scene (scene-local seconds); the music uses the same list. */
-const BARKS = [0.35, 0.7, 1.2];
-
 // ---------- the movie ----------
 
 export default defineMovie({
@@ -345,16 +341,17 @@ export default defineMovie({
         g.translate(w / 2, h / 2); g.scale(zoom, zoom); g.translate(-w / 2, -h / 2);
         park(g, w, h, s.T);
         speedLines(g, w, h, shock * (1 - seg(t, kids.end, kids.end + 0.4)), s.T);
-        // Pochi barks and jumps.
+        // Pochi barks and jumps on each bark that music.json plays.
+        const barks = s.notes('barks').map((n) => n.start);
         let hop = 0;
         let bark = 0;
         let squash = 1;
-        for (const b of BARKS) {
+        for (const b of barks) {
           const p = seg(t, b, b + 0.32);
           if (p > 0 && p < 1) { hop = Math.sin(p * Math.PI) * 90; bark = Math.sin(p * Math.PI); squash = 1 + 0.12 * Math.sin(p * Math.PI); }
         }
         drawPochi(g, 1090, 950, 1.5, { t, hop, bark, squash });
-        BARKS.forEach((b, i) => burst(g, 1240 + i * 90, 520 - i * 80, b, t));
+        barks.forEach((b, i) => burst(g, 1240 + i * 90, 520 - i * 80, b, t));
         // Grandpa walks in from the right.
         const walk = seg(t, 0.2, 1.6);
         drawGen(g, lerp(2200, 1600, inOutCubic(walk)), 970, 1.4, { t, walking: walk > 0 && walk < 1, mouth: flap(gen, t) });
@@ -367,34 +364,5 @@ export default defineMovie({
         g.restore();
       },
     },
-  },
-
-  /** An upbeat comedy tune in F major, plus the barks and a "boing" for the fall. */
-  music(timeline) {
-    const bpm = 132;
-    const beat = 60 / bpm;
-    const total = Math.ceil(timeline.duration / beat);
-    const bars = Math.ceil(total / 4);
-    const chords = ['F', 'Dm7', 'Bb', 'C7'];
-    const reps = Math.ceil(bars / 4);
-    const bark = timeline.scenes.find((x) => x.id === 'bark');
-    const kids = timeline.lines.find((l) => l.id === 'kids-1');
-    return {
-      bpm,
-      gain: 0.75,
-      duck: 0.4,
-      tracks: [
-        { inst: 'keys', gain: 0.55, reverb: 0.25, notes: progression(chords, { style: 'pulse', step: 1, octave: 4, repeat: reps, vel: 0.6 }).map(([a, l, p, v]) => [a + 0.5, 0.35, p, v]) },
-        { inst: 'bass', gain: 0.9, notes: roots(chords, { step: 1, octave: 2, repeat: reps }) },
-        { inst: 'pluck', gain: 0.5, reverb: 0.3, delay: 0.2, pan: 0.25, notes: [
-          ...[0, 2, 4, 5, 7, 5, 4, 2].map((d, i) => [16 + i * 0.5, 0.45, ['F5', 'G5', 'A5', 'Bb5', 'C6', 'Bb5', 'A5', 'G5'][i], 0.7]),
-        ] },
-        { inst: 'kick', gain: 0.7, notes: drums('x...x...x...x...', { repeat: bars }) },
-        { inst: 'hat', gain: 0.6, notes: drums('..o...o...o...oo', { repeat: bars }) },
-        { inst: 'bark', unit: 'seconds', gain: 0.9, notes: BARKS.map((b) => [bark.start + b, 0.25, 'F#4', 1]) },
-        { inst: 'boing', unit: 'seconds', gain: 0.8, notes: [[kids.start + 0.2, 0.4, 'C5', 1]] },
-        { inst: 'swell', unit: 'seconds', gain: 0.6, notes: [[bark.start - 0.6, 0.6, 'C4', 0.8]] },
-      ],
-    };
   },
 });

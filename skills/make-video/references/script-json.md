@@ -2,6 +2,7 @@
 
 `script.json` lists the scenes in order and the narration lines in each scene.
 VVV's timeline reads it together with `voice/manifest.json`, which `vvv voice` writes.
+[`schema/script.schema.json`](../../../schema/script.schema.json) defines the file, and `vvv validate` checks it.
 
 ## Example
 
@@ -43,7 +44,7 @@ To design it yourself, add a scene with the id `credits` to `movie.js`; its draw
 
 | Field | Meaning |
 |---|---|
-| `id` | Unique name. `movie.js` draws the scene under this name. |
+| `id` | Unique name of letters, digits, `_`, `-` and `.`. `movie.js` draws the scene under this name. |
 | `chapter` | A chapter title. The scene starts a chapter. See [Chapters](#chapters). |
 | `lines` | Narration lines, spoken one after another. |
 | `duration` | The scene's minimum length in seconds. A scene without lines needs it. |
@@ -59,7 +60,7 @@ Scenes follow one another without overlap: a transition fades over the start of 
 |---|---|
 | `lang` | `en`, `ja`, `zh`, `es`, `fr` or `pt`. |
 | `text` | What is spoken, and what the subtitle shows unless `caption` says otherwise. May contain `\n` to break the subtitle. |
-| `id` | Unique name. Defaults to `<scene id>-<n>`, counting from 1. |
+| `id` | Unique name of letters, digits, `_`, `-` and `.`. Defaults to `<scene id>-<n>`, counting from 1. |
 | `speech` | Different text to speak, for one line. The pronunciation dictionary still applies to it. |
 | `caption` | A different subtitle, for example a translation, or `false` for none. |
 | `who` | The speaker's name, for `movie.js` (for example to open that character's mouth). |

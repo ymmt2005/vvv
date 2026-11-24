@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ymmt2005/vvv/schema/music.schema.json",
+  "title": "VVV music score (music.json)",
+  "description": "The music and sound effects of a VVV movie. skills/make-video/references/music.md explains every field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tracks"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "bpm": {
+      "description": "Tempo in beats per minute.",
+      "type": "number",
+      "minimum": 20,
+      "maximum": 300
+    },
+    "gain": {
+      "description": "Music level under the narration.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 2
+    },
+    "duck": {
+      "description": "Music level while someone speaks, as a fraction of gain.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "fadeOut": {
+      "description": "Seconds of fade at the end of the movie.",
+      "type": "number",
+      "minimum": 0
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/track"
+      }
+    }
+  },
+  "$defs": {
+    "time": {
+      "description": "Seconds from the movie's start, or a scene or line id with an optional offset in seconds: \"title\", \"title + 1.5\", \"bark - 0.6\".",
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "type": "string",
+          "pattern": "^\\s*\\S+?(\\s+[+-]\\s+\\d+(\\.\\d+)?)?\\s*$"
+        }
+      ]
+    },
+    "pitch": {
+      "description": "A MIDI note number, or a note name such as \"C4\", \"F#3\" or \"Bb2\".",
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        {
+          "type": "string",
+          "pattern": "^[A-G](#{1,2}|b{1,2})?-?\\d$"
+        }
+      ]
+    },
+    "note": {
+      "description": "[at, length, pitch, velocity]: at and length in the track's unit; pitch, or an array of pitches for a chord; velocity from 0 to 1 (default 0.8).",
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 4,
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/pitch"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/pitch"
+              }
+            }
+          ],
+          "description": "A pitch, or an array of pitches for a chord."
+        },
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      ]
+    },
+    "chords": {
+      "description": "Chord symbols such as \"Am7\", \"Fmaj7\" or \"C/E\".",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-G][#b]?[^/]*(/[A-G][#b]?)?$",
+        "description": "A chord symbol such as \"Am7\", \"Fmaj7\" or \"C/E\"."
+      }
+    },
+    "track": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inst"
+      ],
+      "properties": {
+        "inst": {
+          "enum": [
+            "pad",
+            "keys",
+            "bell",
+            "pluck",
+            "bass",
+            "lead",
+            "kick",
+            "snare",
+            "hat",
+            "bark",
+            "boing",
+            "swell"
+          ]
+        },
+        "name": {
+          "description": "A name that movie.js uses to find the track's notes, with s.notes(name).",
+          "type": "string",
+          "minLength": 1
+        },
+        "gain": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "pan": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "reverb": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "delay": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/note"
+          }
+        },
+        "unit": {
+          "enum": [
+            "beats",
+            "seconds"
+          ]
+        },
+        "at": {
+          "$ref": "#/$defs/time"
+        },
+        "progression": {
+          "$ref": "#/$defs/chords"
+        },
+        "roots": {
+          "$ref": "#/$defs/chords"
+        },
+        "drums": {
+          "description": "One character per step: x a hit, o a soft hit, . a rest.",
+          "type": "string",
+          "pattern": "^[xo.\\s]*[xo][xo.\\s]*$"
+        },
+        "beats": {
+          "description": "Beats per chord.",
+          "type": "number",
+          "minimum": 0.25
+        },
+        "octave": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "style": {
+          "enum": [
+            "block",
+            "pulse",
+            "arp"
+          ]
+        },
+        "step": {
+          "description": "Beats between notes; at least a 32nd note.",
+          "type": "number",
+          "minimum": 0.125
+        },
+        "vel": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "shift": {
+          "description": "Beats to move every note by.",
+          "type": "number"
+        },
+        "length": {
+          "description": "Every note's length in beats.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "from": {
+          "$ref": "#/$defs/time"
+        },
+        "until": {
+          "$ref": "#/$defs/time"
+        }
+      }
+    }
+  }
+}

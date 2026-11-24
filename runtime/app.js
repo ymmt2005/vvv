@@ -6,6 +6,7 @@ import { buildTimeline, scenesAt } from './timeline.js';
 import { Stage } from './stage.js';
 import { loadFonts, text } from './text.js';
 import { renderSoundtrack } from './audio/soundtrack.js';
+import { expandMusic } from './audio/score.js';
 import { encodeMovie } from './encode/encoder.js';
 
 const headless = new URLSearchParams(location.search).has('headless');
@@ -26,17 +27,18 @@ async function load() {
   const script = await fetchJson(`${MOVIE}script.json`);
   const voice = await fetchJson(`${MOVIE}voice/manifest.json`, true);
   const timeline = buildTimeline(script, voice);
+  const musicSpec = await fetchJson(`${MOVIE}music.json`, true);
+  const music = musicSpec ? expandMusic(musicSpec, timeline) : null;
   const movie = (await import(`${MOVIE}movie.js`)).default;
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('screen'));
-  const stage = new Stage(canvas, timeline, movie, MOVIE);
+  const stage = new Stage(canvas, timeline, movie, music, MOVIE);
   await stage.init();
-  const score = movie.music ? movie.music(timeline) : null;
   /** @type {Promise<AudioBuffer> | null} */
   let soundtrack = null;
   // Rendered once and shared; a failed render is forgotten so that the next call tries again.
-  const getSoundtrack = () => (soundtrack ??= renderSoundtrack({ timeline, score, voiceBase: `${MOVIE}voice/` })
+  const getSoundtrack = () => (soundtrack ??= renderSoundtrack({ timeline, music, voiceBase: `${MOVIE}voice/` })
     .catch((e) => { soundtrack = null; throw e; }));
-  return { script, timeline, stage, canvas, getSoundtrack };
+  return { script, timeline, movie, stage, canvas, getSoundtrack };
 }
 
 /** A grid of thumbnails at the given times, each labelled with its time and scene. */
@@ -70,7 +72,8 @@ async function postOutput(bytes) {
 async function main() {
   const m = await load();
   const { timeline, stage } = m;
-  stage.draw(0);
+  // A draw error must not stop the page from loading: vvv validate and check report it, and the preview shows it.
+  try { stage.draw(0); } catch { /* reported later */ }
 
   // @ts-ignore
   window.vvv = {
@@ -82,6 +85,37 @@ async function main() {
     still: (t) => { stage.draw(t); return m.canvas.toDataURL('image/png'); },
     sheet: (times, cols, thumbW) => contactSheet(m, times, cols, thumbW),
     warnings: () => stage.allWarnings(),
+    /**
+     * What movie.js defines, for vvv validate, plus the errors from drawing a few frames of each scene:
+     * its first frame, its middle and its last frame. draw: false skips the drawing, for check, which draws every frame.
+     */
+    inspect: ({ draw = true } = {}) => {
+      const def = m.movie ?? {};
+      const kind = (v) => (v === undefined ? 'missing' : typeof v);
+      const scenes = Object.fromEntries(Object.entries(def.scenes ?? {}).map(([id, sc]) => [id, {
+        keys: Object.keys(sc ?? {}), draw: kind(sc?.draw), setup: kind(sc?.setup),
+      }]));
+      const errors = [];
+      // A scene whose draw is not a function is reported from its definition above.
+      const drawable = (sc) => { const d = stage.def(sc); return !d || typeof d.draw === 'function'; };
+      for (const sc of draw ? timeline.scenes.filter(drawable) : []) {
+        const last = Math.max(sc.start, sc.end - 1 / timeline.fps);
+        for (const T of [sc.start, (sc.start + sc.end) / 2, last]) {
+          // Draw this scene alone, not through a transition, so an error is blamed on the scene that threw.
+          try {
+            stage.drawScene(stage.g, sc, T);
+          } catch (e) {
+            errors.push({ scene: sc.id, time: T, message: String(e?.message ?? e) });
+            break;
+          }
+        }
+      }
+      return {
+        keys: Object.keys(def), scenesType: kind(def.scenes), scenes,
+        captionStyle: def.captionStyle && typeof def.captionStyle === 'object' ? Object.keys(def.captionStyle) : null,
+        errors, warnings: stage.allWarnings(),
+      };
+    },
     /** Draw every frame without encoding; report the frames that throw. */
     check: () => {
       const errors = [];
@@ -140,10 +174,15 @@ function setupControls(m) {
   let starting = false;
   const show = (t) => {
     pos = Math.max(0, Math.min(timeline.duration, t));
-    stage.draw(pos);
+    let drawError = '';
+    try {
+      stage.draw(pos);
+    } catch (e) {
+      drawError = `Error drawing ${pos.toFixed(2)} s: ${e?.message ?? e}`;
+    }
     seek.value = String(Math.round((pos / timeline.duration) * 1000));
     time.textContent = `${pos.toFixed(2)} / ${timeline.duration.toFixed(2)}`;
-    warn.textContent = stage.allWarnings().join('\n');
+    warn.textContent = [drawError, ...stage.allWarnings()].filter(Boolean).join('\n');
     const current = timeline.chapters.findLastIndex((c) => pos >= c.start);
     chapterButtons.forEach((btn, i) => btn.classList.toggle('current', i === current));
   };

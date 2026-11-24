@@ -22,7 +22,6 @@ export default defineMovie({
       },
     },
   },
-  music: (timeline) => ({ bpm: 100, tracks: [] }),
 });
 ```
 
@@ -33,13 +32,15 @@ export default defineMovie({
 | `scenes` | One entry per scene id in `script.json`: `{ setup?, draw }`. A scene without an entry shows a placeholder and a warning. |
 | `background` | Colour behind every scene. |
 | `captionStyle` | Subtitle style: `size` (44), `weight` (500), `color`, `box` (background colour), `bottom` (72 px margin), `width` (0.78 of the frame), `maxLines` (2). |
-| `music(timeline)` | Returns the score. See [music.md](music.md). |
+
+The music is not in `movie.js`: it is in `music.json`, which [music.md](music.md) explains.
+`vvv validate` checks these fields and their names against `script.json`.
 
 ## A scene
 
 `setup(s)` runs once before any frame and may be `async`.
 Load images and build 3D scenes there, and return whatever `draw` needs.
-`s` has `scene`, `timeline`, `w`, `h`, `image(path)` (resolves relative to the movie directory) and `three(options)`.
+`s` has `scene`, `timeline`, `music`, `w`, `h`, `image(path)` (resolves relative to the movie directory) and `three(options)`.
 
 `draw(g, s)` draws one frame onto `g`, a `CanvasRenderingContext2D` of the full frame size.
 It must depend only on `s`:
@@ -53,6 +54,8 @@ It must depend only on `s`:
 | `state` | What `setup` returned. |
 | `line(id)` | One of the scene's lines, by its id or by its index from 0. It has `start`, `end` (scene-local seconds), `active`, `p` (progress), `text`, `who`. |
 | `lines` | All of the scene's lines. |
+| `notes(name)` | The notes of the `music.json` track with that `name`, each with `start` and `end` (scene-local seconds), `pitch` and `vel`. See [music.md](music.md#sounds-in-step-with-the-picture). |
+| `music` | The expanded score, or `null` without `music.json`. See [music.md](music.md#sounds-in-step-with-the-picture). |
 | `timeline` | The whole timeline: `scenes` (each with its `chapter` title or `null`), `lines`, `chapters` (each `{ title, start, end }`, in seconds from the movie's start), `duration`, `credits`. |
 
 Tie motion to the narration with `s.line(...)`: for example, show a card when its line starts, or move a character's mouth while `line.active`.

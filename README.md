@@ -1,7 +1,7 @@
 # VVV
 
 VVV makes narrated videos in Chrome.
-A movie is a storyboard (`script.json`) plus drawing and music code (`movie.js`).
+A movie is a storyboard (`script.json`), a score (`music.json`) and drawing code (`movie.js`).
 Headless Chrome draws every frame from its time alone, encodes it with WebCodecs, and writes an MP4.
 
 ## Setup
@@ -18,20 +18,85 @@ Chromium goes to Playwright's own cache.
 
 ## Make a movie
 
-```sh
-node bin/vvv.js voice   examples/wonderful-day   # speak the narration lines into voice/
-node bin/vvv.js frames  examples/wonderful-day   # contact sheet in out/sheet.png
-node bin/vvv.js check   examples/wonderful-day   # draw every frame; report errors and text overflow
-node bin/vvv.js render  examples/wonderful-day   # out/wonderful-day.mp4
-node bin/vvv.js preview examples/wonderful-day   # player with play and seek, on http://localhost:8573/
+A movie is a directory that holds three files:
+
+| File | What it says |
+|---|---|
+| `script.json` | The storyboard: the scenes in order, and the narration lines of each scene. |
+| `music.json` | The score: chords, bass, drums and sound effects. Optional. |
+| `movie.js` | The pictures: for each scene, a function that draws its frame at a given time. |
+
+You never write when a scene starts.
+Each scene lasts as long as its narration, which VVV measures from the generated voice.
+The music and the drawings refer to scenes and lines by their ids, so they stay in step when the narration changes.
+
+Here is a complete movie: a narrated "Hello", then a title that fades in with a bell.
+
+`script.json`:
+
+```json
+{
+  "scenes": [
+    { "id": "hello", "lines": [{ "lang": "en", "text": "Hello from VVV." }] },
+    { "id": "logo", "duration": 3, "transition": 0.5 }
+  ]
+}
 ```
+
+`music.json`:
+
+```json
+{
+  "bpm": 90,
+  "tracks": [
+    { "inst": "pad", "progression": ["C", "Am", "F", "G"] },
+    { "inst": "bell", "unit": "seconds", "at": "logo + 0.5", "notes": [[0, 2, "C6"]] }
+  ]
+}
+```
+
+`movie.js`:
+
+```js
+import { defineMovie, text, seg, outCubic } from 'vvv';
+
+const title = (g, s, words, size) =>
+  text(g, words, { x: s.w / 2, y: s.h / 2, size, weight: 700, align: 'center', baseline: 'middle', color: '#ffffff' });
+
+export default defineMovie({
+  background: '#101624',
+  scenes: {
+    hello: { draw: (g, s) => title(g, s, 'Hello', 120) },
+    logo: {
+      draw(g, s) {
+        g.globalAlpha = outCubic(seg(s.t, 0.2, 1.2));
+        title(g, s, 'VVV', 200);
+      },
+    },
+  },
+});
+```
+
+Then run these commands on the directory, in order:
+
+```sh
+node bin/vvv.js validate my-movie   # check the three files, and say what to fix
+node bin/vvv.js voice    my-movie   # speak the narration into my-movie/voice/
+node bin/vvv.js preview  my-movie   # play the movie in your browser, at http://localhost:8573/
+node bin/vvv.js check    my-movie   # draw every frame, and report errors and overflowing text
+node bin/vvv.js render   my-movie   # write my-movie/out/my-movie.mp4
+```
+
+`node bin/vvv.js help` lists every command and option.
+[`examples/wonderful-day/`](examples/wonderful-day/) is a longer movie: a cartoon with four characters, voiced by one voice at different pitches.
 
 The MP4 holds H.264 video and Opus audio.
 Chrome on Linux cannot encode AAC.
 When scenes have chapter titles, the MP4 carries them as chapters, and `render` writes them into `out/` for web players and YouTube.
-See [script-json.md](skills/make-video/references/script-json.md#chapters).
 
-[`skills/make-video/references/`](skills/make-video/references/) documents `script.json`, `movie.js`, the music score and the voice engines.
+The references in [`skills/make-video/references/`](skills/make-video/references/) explain every field of the three files.
+The schemas in [`schema/`](schema/) define the two JSON files.
+Set a file's `"$schema"` to the schema's path on your disk, and your editor completes and checks the fields.
 
 ## Use it from Claude Code
 
@@ -76,6 +141,7 @@ flowchart LR
   end
   script --> timeline
   clips --> timeline
+  score[music.json] --> audio
   mux --> mp4[out/*.mp4]
 ```
 
@@ -96,7 +162,7 @@ VVV draws the subtitles and the default credits card from the timeline, so `movi
 
 **The audio is rendered, not played.**
 The soundtrack is one Web Audio graph in an `OfflineAudioContext`, which computes the whole track faster than real time.
-The music comes from VVV's own synthesizer instruments, which play a score written in `movie.js`.
+The music comes from VVV's own synthesizer instruments, which play the score in `music.json`.
 The graph mixes in the voice clips, lowers the music while someone speaks, adds reverb and a delay, and ends in a compressor.
 `preview` plays this same buffer, so the preview sounds exactly like the MP4.
 

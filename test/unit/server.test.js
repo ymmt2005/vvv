@@ -39,6 +39,7 @@ test('the server answers bad paths without crashing, and refuses other hosts', a
     assert.equal((await raw(port, '/movie/a.txt')).status, 200, 'still serving after a bad request');
     assert.equal((await raw(port, '/movie/a.txt', { host: `evil.example:${port}` })).status, 403);
     assert.equal((await raw(port, '/movie/voice/manifest.json')).status, 204);
+    assert.equal((await raw(port, '/movie/music.json')).status, 204);
   } finally {
     await s.close();
   }

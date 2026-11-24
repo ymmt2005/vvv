@@ -4,4 +4,3 @@
 export { defineMovie } from './stage.js';
 export { text, wrap, FONT_FAMILY } from './text.js';
 export * from './ease.js';
-export { midi, freq, chord, scale, progression, roots, drums, beatsToSeconds, secondsToBeats } from './audio/music.js';

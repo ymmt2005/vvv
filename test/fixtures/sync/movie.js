@@ -1,6 +1,6 @@
 // Test movie: each frame shows its own index as 8 bit blocks (white = 1), so a
-// decoder can tell exactly which frame it got. A kick sounds at 1.000 s; the
-// render test looks for it there. A silent bark checks that velocity 0 renders.
+// decoder can tell exactly which frame it got. music.json sounds a kick at 1.000 s, where
+// the render test looks for it, and a silent bark, which checks that velocity 0 renders.
 import { defineMovie } from 'vvv';
 
 function bits(g, s) {
@@ -15,11 +15,4 @@ function bits(g, s) {
 export default defineMovie({
   background: '#000000',
   scenes: { a: { draw: bits }, b: { draw: bits } },
-  music: () => ({
-    bpm: 120,
-    tracks: [
-      { inst: 'kick', unit: 'seconds', notes: [[1.0, 0.2, 60, 1]] },
-      { inst: 'bark', unit: 'seconds', notes: [[2.0, 0.2, 60, 0]] },
-    ],
-  }),
 });

@@ -1,7 +1,7 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chord, drums, freq, midi, progression, roots, scale } from '../../runtime/audio/music.js';
+import { chord, drums, freq, midi, progression, roots } from '../../runtime/audio/music.js';
 
 test('note names map to MIDI numbers and frequencies', () => {
   assert.equal(midi('C4'), 60);
@@ -13,13 +13,11 @@ test('note names map to MIDI numbers and frequencies', () => {
   assert.throws(() => midi('H2'), /bad pitch/);
 });
 
-test('chords, slash chords and scales', () => {
+test('chords and slash chords', () => {
   assert.deepEqual(chord('C', 4), [60, 64, 67]);
   assert.deepEqual(chord('Am7', 3), [57, 60, 64, 67]);
   assert.deepEqual(chord('C/E', 4), [52, 60, 64, 67]);
   assert.throws(() => chord('Cxyz'), /unknown chord quality/);
-  const c = scale('C4', 'major');
-  assert.deepEqual([0, 4, 7, -1].map(c), [60, 67, 72, 59]);
 });
 
 test('progression styles and the bass roots line up in beats', () => {

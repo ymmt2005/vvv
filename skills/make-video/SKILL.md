@@ -5,9 +5,11 @@ description: Make a narrated MP4 video with VVV, which renders 2D and three.js a
 
 # Make a video with VVV
 
-VVV turns two files into an MP4.
+VVV turns three files into an MP4.
 `script.json` is the storyboard: scenes, narration lines, voice and timing.
-`movie.js` draws each frame and composes the music.
+`music.json` is the score: chords, bass, drums and sound effects, timed by scene and line.
+`movie.js` draws each frame.
+Schemas in VVV's `schema/` directory define the two JSON files.
 Headless Chrome draws frame *i* at time *t = i / fps* and encodes it with WebCodecs, so the result never depends on machine speed.
 
 VVV's root directory is `${CLAUDE_SKILL_DIR}/../..`.
@@ -47,7 +49,7 @@ Do not use a temporary or scratchpad directory either.
 It gets cleared, and a paid voice engine must then generate the lost clips again.
 When the user asks to change an existing movie, work in its directory, so that `vvv voice` keeps the clips of unchanged lines.
 
-The directory holds `script.json`, `movie.js`, and any images or SVG files the movie loads.
+The directory holds `script.json`, `music.json`, `movie.js`, and any images or SVG files the movie loads.
 VVV writes `voice/` and `out/` there.
 
 ### 3. Write the storyboard (`script.json`)
@@ -63,6 +65,8 @@ To narrate in one language and subtitle in another, put the spoken text in `text
 Give scenes chapter titles when the user asks for chapters, or when a longer video has parts that a viewer may want to jump to.
 
 Read [references/script-json.md](references/script-json.md) for every field.
+Then run `vvv validate <dir>` and fix what it reports.
+Every message names the field and suggests the closest valid name for a misspelt one.
 
 ### 4. Generate the voice
 
@@ -73,13 +77,21 @@ Choose the engine with the user when quality matters:
 
 Then run `vvv voice <dir>`.
 It speaks only the lines whose text or voice settings changed.
+It validates `script.json` first, and stops before calling an engine when the file has errors.
 
 **Pronunciation is the most common defect, and you cannot hear the result.**
 Text-to-speech engines read unfamiliar names and some acronyms wrongly: piper-plus spelled "Orito" as "O-R-I-T-O" and read "AI" as "eye".
 Before the first voice run, list every product name, person's name and acronym in the narration, and add entries for them to `voice.pronounce`.
 [references/voice.md](references/voice.md) explains the dictionary and what each engine accepts.
 
-### 5. Draw the movie (`movie.js`)
+### 5. Compose the music (`music.json`)
+
+Write the score: a chord progression on `pad` or `keys`, a bass line, drums for a playful video, and sound effects at the moments they belong to, timed by their scene or line.
+
+Read [references/music.md](references/music.md) for the fields and the instruments, then run `vvv validate <dir>`.
+It checks the score against `script.json` too, such as the scenes and lines that its times name.
+
+### 6. Draw the movie (`movie.js`)
 
 Write a draw function per scene.
 Keep it a pure function of time: use the `t` the runtime passes in and `rng(seed)` from `vvv`, never `Date.now()`, `performance.now()` or `Math.random()`.
@@ -88,9 +100,13 @@ A frame that depends on anything else renders differently in preview, check and 
 Leave the bottom of the frame clear when subtitles are on: they take about the lowest 200 px of 1080.
 Put explicit `\n` in Japanese subtitle text where a line should break, because automatic breaks can split a word.
 
-Read [references/movie-js.md](references/movie-js.md) for the drawing API, the three.js layer and images, and [references/music.md](references/music.md) for the score.
+Read [references/movie-js.md](references/movie-js.md) for the drawing API, the three.js layer and images.
+To move something in step with a sound, such as a dog that jumps on each bark, read the sound's times with `s.notes(name)`.
 
-### 6. Look at frames, then fix
+Then run `vvv validate <dir>`.
+It checks the names in `movie.js` against `script.json`, such as scene ids and fields, and draws the first, middle and last frame of each scene.
+
+### 7. Look at frames, then fix
 
 Run `vvv frames <dir>` and read `<dir>/out/sheet.png` with the Read tool.
 It is a grid of thumbnails, each labelled with its time and scene.
@@ -103,14 +119,14 @@ Add `--full` to also write each of those frames at full size, as `<dir>/out/fram
 Repeat until the frames look right.
 This loop is how you see the video; skip it and defects reach the user.
 
-### 7. Check every frame
+### 8. Check every frame
 
 Run `vvv check <dir>`.
-It draws every frame without encoding and reports draw errors with their time range, and text that overflows its box.
+It validates the movie, then draws every frame without encoding and reports draw errors with their time range, and text that overflows its box.
 A contact sheet samples only some frames, so a bug that shows at one moment, such as an array index that goes out of range before an animation starts, passes `frames` and fails here.
 Fix every error and warning, then run it again.
 
-### 8. Render and deliver
+### 9. Render and deliver
 
 Run `vvv render <dir>`.
 It writes `<dir>/out/<dir-name>.mp4` with H.264 video and Opus audio, and prints the video's length.
@@ -124,6 +140,6 @@ Say which voice engine and voice spoke, and list anything the user should check 
 
 ## When the user asks for changes
 
-Edit the storyboard or `movie.js`, then repeat from the step the change affects.
-A text change needs `vvv voice` again; a drawing change needs only frames, check and render.
+Edit the storyboard, the score or `movie.js`, then repeat from the step the change affects.
+A text change needs `vvv voice` again; a drawing or music change needs only validate, frames, check and render.
 Re-render after every change before you show the video again.
